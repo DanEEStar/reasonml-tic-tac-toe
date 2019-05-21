@@ -11,6 +11,15 @@ let stringOfSquareValue = value => {
   };
 };
 
+type action =
+  | NextMove(int)
+  | JumpToHistory(int);
+
+type state = {
+  history: list(Belt.Map.Int.t(squareValue)),
+  currentHistoryIndex: int,
+};
+
 module Square = {
   [@react.component]
   let make = (~onClick, ~value) => {
@@ -46,11 +55,6 @@ module Board = {
   };
 };
 
-type state = {
-  squareValues: Belt.Map.Int.t(squareValue),
-  xIsNext: bool,
-};
-
 let calculateWinner = squareValues => {
   let checkLine = ((i1, i2, i3)) => {
     open Belt.Map.Int;
@@ -69,7 +73,7 @@ let calculateWinner = squareValues => {
     };
   };
 
-  let lines = [
+  let lines = [|
     (0, 1, 2),
     (3, 4, 5),
     (6, 7, 8),
@@ -78,11 +82,11 @@ let calculateWinner = squareValues => {
     (2, 5, 8),
     (0, 4, 8),
     (2, 4, 6),
-  ];
+  |];
 
-  Belt.List.map(lines, checkLine)
-  ->Belt.List.keep(v => v != SquareEmpty)
-  ->Belt.List.head
+  Belt.Array.map(lines, checkLine)
+  ->Belt.Array.keep(v => v != SquareEmpty)
+  ->Belt.Array.get(0)
   ->Belt.Option.getWithDefault(SquareEmpty);
 };
 
@@ -90,31 +94,36 @@ let hasWinner = squareValues => {
   calculateWinner(squareValues) != SquareEmpty;
 };
 
-/* Action declaration */
-type action =
-  | NextMove(int);
+let nextPlayer = historySize =>
+  if (historySize mod 2 == 0) {
+    SquareO;
+  } else {
+    SquareX;
+  };
 
 let nextMove = (state, squareIndex) => {
-  Js.log("squareIndex " ++ string_of_int(squareIndex));
-  if (Belt.Map.Int.getWithDefault(
-        state.squareValues,
-        squareIndex,
-        SquareEmpty,
-      )
+  let currentSquares =
+    Belt.List.getExn(state.history, state.currentHistoryIndex);
+  let tailSquares =
+    Belt.List.keepWithIndex(state.history, (_value, index) =>
+      index >= state.currentHistoryIndex
+    );
+
+  if (Belt.Map.Int.getWithDefault(currentSquares, squareIndex, SquareEmpty)
       != SquareEmpty
-      || hasWinner(state.squareValues)) {
+      || hasWinner(currentSquares)) {
     state;
-  } else if (state.xIsNext) {
-    {
-      xIsNext: false,
-      squareValues:
-        Belt.Map.Int.set(state.squareValues, squareIndex, SquareX),
-    };
   } else {
     {
-      xIsNext: true,
-      squareValues:
-        Belt.Map.Int.set(state.squareValues, squareIndex, SquareO),
+      currentHistoryIndex: 0,
+      history: [
+        Belt.Map.Int.set(
+          currentSquares,
+          squareIndex,
+          nextPlayer(Belt.List.size(tailSquares)),
+        ),
+        ...tailSquares,
+      ],
     };
   };
 };
@@ -132,35 +141,56 @@ let make = (~message) => {
       (state, action) =>
         switch (action) {
         | NextMove(squareIndex) => nextMove(state, squareIndex)
+        | JumpToHistory(historyIndex) =>
+          Js.log();
+          {...state, currentHistoryIndex: historyIndex};
         },
-      {squareValues: initEmptySquareValues(), xIsNext: true},
+      {history: [initEmptySquareValues()], currentHistoryIndex: 0},
     );
 
   let handleClick = (_event, squareIndex) =>
     dispatch(NextMove(squareIndex));
-
-  let winner = calculateWinner(state.squareValues);
+  let currentSquares =
+    Belt.List.getExn(state.history, state.currentHistoryIndex);
+  let winner = calculateWinner(currentSquares);
 
   let statusDisplay =
     if (winner != SquareEmpty) {
       "Winner: " ++ stringOfSquareValue(winner);
     } else {
       "Next player: "
-      ++ (
-        if (state.xIsNext) {
-          "X";
-        } else {
-          "O";
-        }
-      );
+      ++ stringOfSquareValue(
+           nextPlayer(
+             Belt.List.size(state.history) - state.currentHistoryIndex,
+           ),
+         );
     };
+
+  let historySize = Belt.List.size(state.history);
+  let moves =
+    Belt.List.mapWithIndex(state.history, (index, _value) =>
+      <li key={string_of_int(index)}>
+        <button
+          onClick={_event =>
+            dispatch(JumpToHistory(historySize - index - 1))
+          }>
+          {if (index == 0) {
+             React.string("Go to game start");
+           } else {
+             React.string("Go to move #" ++ string_of_int(index));
+           }}
+        </button>
+      </li>
+    )
+    ->Belt.List.toArray;
 
   <div className="game">
     <div className="game-board">
-      <Board onClick=handleClick squareValues={state.squareValues} />
+      <Board onClick=handleClick squareValues=currentSquares />
     </div>
     <div className="game-info">
       <div> {React.string(statusDisplay)} </div>
+      <div> {React.array(moves)} </div>
     </div>
   </div>;
 };
