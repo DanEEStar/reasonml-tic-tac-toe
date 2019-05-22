@@ -16,7 +16,7 @@ type action =
   | JumpToHistory(int);
 
 type state = {
-  history: list(Belt.Map.Int.t(squareValue)),
+  history: list((Belt.Map.Int.t(squareValue), int)),
   currentHistoryIndex: int,
 };
 
@@ -96,34 +96,38 @@ let hasWinner = squareValues => {
 
 let nextPlayer = historySize =>
   if (historySize mod 2 == 0) {
-    SquareO;
-  } else {
     SquareX;
+  } else {
+    SquareO;
   };
 
 let nextMove = (state, squareIndex) => {
-  let currentSquares =
+  let (currentSquares, _move) =
     Belt.List.getExn(state.history, state.currentHistoryIndex);
-  let tailSquares =
-    Belt.List.keepWithIndex(state.history, (_value, index) =>
-      index >= state.currentHistoryIndex
-    );
 
   if (Belt.Map.Int.getWithDefault(currentSquares, squareIndex, SquareEmpty)
       != SquareEmpty
       || hasWinner(currentSquares)) {
     state;
   } else {
+    let headSquares =
+      Belt.List.keepWithIndex(state.history, (_value, index) =>
+        index <= state.currentHistoryIndex
+      );
     {
-      currentHistoryIndex: 0,
-      history: [
-        Belt.Map.Int.set(
-          currentSquares,
-          squareIndex,
-          nextPlayer(Belt.List.size(tailSquares)),
-        ),
-        ...tailSquares,
-      ],
+      currentHistoryIndex: state.currentHistoryIndex + 1,
+      history:
+        headSquares
+        @ [
+          (
+            Belt.Map.Int.set(
+              currentSquares,
+              squareIndex,
+              nextPlayer(Belt.List.size(headSquares) + 1),
+            ),
+            squareIndex,
+          ),
+        ],
     };
   };
 };
@@ -141,16 +145,18 @@ let make = (~message) => {
       (state, action) =>
         switch (action) {
         | NextMove(squareIndex) => nextMove(state, squareIndex)
-        | JumpToHistory(historyIndex) =>
-          Js.log();
-          {...state, currentHistoryIndex: historyIndex};
+        | JumpToHistory(historyIndex) => {
+            ...state,
+            currentHistoryIndex: historyIndex,
+          }
         },
-      {history: [initEmptySquareValues()], currentHistoryIndex: 0},
+      {history: [(initEmptySquareValues(), (-1))], currentHistoryIndex: 0},
     );
 
   let handleClick = (_event, squareIndex) =>
     dispatch(NextMove(squareIndex));
-  let currentSquares =
+  Js.log(state.currentHistoryIndex);
+  let (currentSquares, _currentMove) =
     Belt.List.getExn(state.history, state.currentHistoryIndex);
   let winner = calculateWinner(currentSquares);
 
@@ -159,28 +165,30 @@ let make = (~message) => {
       "Winner: " ++ stringOfSquareValue(winner);
     } else {
       "Next player: "
-      ++ stringOfSquareValue(
-           nextPlayer(
-             Belt.List.size(state.history) - state.currentHistoryIndex,
-           ),
-         );
+      ++ stringOfSquareValue(nextPlayer(state.currentHistoryIndex));
     };
 
-  let historySize = Belt.List.size(state.history);
   let moves =
-    Belt.List.mapWithIndex(state.history, (index, _value) =>
-      <li key={string_of_int(index)}>
-        <button
-          onClick={_event =>
-            dispatch(JumpToHistory(historySize - index - 1))
-          }>
-          {if (index == 0) {
-             React.string("Go to game start");
-           } else {
-             React.string("Go to move #" ++ string_of_int(index));
-           }}
-        </button>
-      </li>
+    Belt.List.mapWithIndex(
+      state.history,
+      (index, (_squareValues, move)) => {
+        let row = move / 3;
+        let col = move mod 3;
+        let moveString =
+          "(" ++ string_of_int(row) ++ ", " ++ string_of_int(col) ++ ")";
+
+        <li key={string_of_int(index)}>
+          <button onClick={_event => dispatch(JumpToHistory(index))}>
+            {if (index == 0) {
+               React.string("Go to game start");
+             } else {
+               React.string(
+                 "Go to move #" ++ string_of_int(index) ++ " " ++ moveString,
+               );
+             }}
+          </button>
+        </li>;
+      },
     )
     ->Belt.List.toArray;
 

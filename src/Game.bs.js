@@ -7,6 +7,7 @@ var React = require("react");
 var Belt_List = require("bs-platform/lib/js/belt_List.js");
 var Belt_Array = require("bs-platform/lib/js/belt_Array.js");
 var Caml_int32 = require("bs-platform/lib/js/caml_int32.js");
+var Pervasives = require("bs-platform/lib/js/pervasives.js");
 var Belt_MapInt = require("bs-platform/lib/js/belt_MapInt.js");
 var Belt_Option = require("bs-platform/lib/js/belt_Option.js");
 
@@ -129,26 +130,30 @@ function hasWinner(squareValues) {
 
 function nextPlayer(historySize) {
   if (historySize % 2 === 0) {
-    return /* SquareO */2;
-  } else {
     return /* SquareX */1;
+  } else {
+    return /* SquareO */2;
   }
 }
 
 function nextMove(state, squareIndex) {
-  var currentSquares = Belt_List.getExn(state[/* history */0], state[/* currentHistoryIndex */1]);
-  var tailSquares = Belt_List.keepWithIndex(state[/* history */0], (function (_value, index) {
-          return index >= state[/* currentHistoryIndex */1];
-        }));
+  var match = Belt_List.getExn(state[/* history */0], state[/* currentHistoryIndex */1]);
+  var currentSquares = match[0];
   if (Belt_MapInt.getWithDefault(currentSquares, squareIndex, /* SquareEmpty */0) !== /* SquareEmpty */0 || calculateWinner(currentSquares) !== /* SquareEmpty */0) {
     return state;
   } else {
+    var headSquares = Belt_List.keepWithIndex(state[/* history */0], (function (_value, index) {
+            return index <= state[/* currentHistoryIndex */1];
+          }));
     return /* record */[
-            /* history : :: */[
-              Belt_MapInt.set(currentSquares, squareIndex, nextPlayer(Belt_List.size(tailSquares))),
-              tailSquares
-            ],
-            /* currentHistoryIndex */0
+            /* history */Pervasives.$at(headSquares, /* :: */[
+                  /* tuple */[
+                    Belt_MapInt.set(currentSquares, squareIndex, nextPlayer(Belt_List.size(headSquares) + 1 | 0)),
+                    squareIndex
+                  ],
+                  /* [] */0
+                ]),
+            /* currentHistoryIndex */state[/* currentHistoryIndex */1] + 1 | 0
           ];
   }
 }
@@ -167,7 +172,6 @@ function Game(Props) {
   Props.message;
   var match = React.useReducer((function (state, action) {
           if (action.tag) {
-            console.log(/* () */0);
             return /* record */[
                     /* history */state[/* history */0],
                     /* currentHistoryIndex */action[0]
@@ -177,7 +181,10 @@ function Game(Props) {
           }
         }), /* record */[
         /* history : :: */[
-          initEmptySquareValues(/* () */0),
+          /* tuple */[
+            initEmptySquareValues(/* () */0),
+            -1
+          ],
           /* [] */0
         ],
         /* currentHistoryIndex */0
@@ -187,18 +194,23 @@ function Game(Props) {
   var handleClick = function (_event, squareIndex) {
     return Curry._1(dispatch, /* NextMove */Block.__(0, [squareIndex]));
   };
-  var currentSquares = Belt_List.getExn(state[/* history */0], state[/* currentHistoryIndex */1]);
+  console.log(state[/* currentHistoryIndex */1]);
+  var match$1 = Belt_List.getExn(state[/* history */0], state[/* currentHistoryIndex */1]);
+  var currentSquares = match$1[0];
   var winner = calculateWinner(currentSquares);
-  var statusDisplay = winner !== /* SquareEmpty */0 ? "Winner: " + stringOfSquareValue(winner) : "Next player: " + stringOfSquareValue(nextPlayer(Belt_List.size(state[/* history */0]) - state[/* currentHistoryIndex */1] | 0));
-  var historySize = Belt_List.size(state[/* history */0]);
-  var moves = Belt_List.toArray(Belt_List.mapWithIndex(state[/* history */0], (function (index, _value) {
+  var statusDisplay = winner !== /* SquareEmpty */0 ? "Winner: " + stringOfSquareValue(winner) : "Next player: " + stringOfSquareValue(nextPlayer(state[/* currentHistoryIndex */1]));
+  var moves = Belt_List.toArray(Belt_List.mapWithIndex(state[/* history */0], (function (index, param) {
+              var move = param[1];
+              var row = move / 3 | 0;
+              var col = move % 3;
+              var moveString = "(" + (String(row) + (", " + (String(col) + ")")));
               return React.createElement("li", {
                           key: String(index)
                         }, React.createElement("button", {
                               onClick: (function (_event) {
-                                  return Curry._1(dispatch, /* JumpToHistory */Block.__(1, [(historySize - index | 0) - 1 | 0]));
+                                  return Curry._1(dispatch, /* JumpToHistory */Block.__(1, [index]));
                                 })
-                            }, index === 0 ? "Go to game start" : "Go to move #" + String(index)));
+                            }, index === 0 ? "Go to game start" : "Go to move #" + (String(index) + (" " + moveString))));
             })));
   return React.createElement("div", {
               className: "game"

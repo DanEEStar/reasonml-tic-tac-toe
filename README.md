@@ -1,5 +1,10 @@
 # react-tic-tac-toe
 
+The React tutorial converted to ReasonReact with hooks.
+
+* created types for square values, X, O or empty
+* 
+
 ## Run Project
 
 ```sh
