@@ -194,7 +194,6 @@ function Game(Props) {
   var handleClick = function (_event, squareIndex) {
     return Curry._1(dispatch, /* NextMove */Block.__(0, [squareIndex]));
   };
-  console.log(state[/* currentHistoryIndex */1]);
   var match$1 = Belt_List.getExn(state[/* history */0], state[/* currentHistoryIndex */1]);
   var currentSquares = match$1[0];
   var winner = calculateWinner(currentSquares);
@@ -204,13 +203,14 @@ function Game(Props) {
               var row = move / 3 | 0;
               var col = move % 3;
               var moveString = "(" + (String(row) + (", " + (String(col) + ")")));
+              var moveDisplay = index === 0 ? "Go to game start" : "Go to move #" + (String(index) + (" " + moveString));
               return React.createElement("li", {
                           key: String(index)
                         }, React.createElement("button", {
                               onClick: (function (_event) {
                                   return Curry._1(dispatch, /* JumpToHistory */Block.__(1, [index]));
                                 })
-                            }, index === 0 ? "Go to game start" : "Go to move #" + (String(index) + (" " + moveString))));
+                            }, index === state[/* currentHistoryIndex */1] ? React.createElement("b", undefined, moveDisplay) : moveDisplay));
             })));
   return React.createElement("div", {
               className: "game"

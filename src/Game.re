@@ -155,9 +155,10 @@ let make = (~message) => {
 
   let handleClick = (_event, squareIndex) =>
     dispatch(NextMove(squareIndex));
-  Js.log(state.currentHistoryIndex);
+
   let (currentSquares, _currentMove) =
     Belt.List.getExn(state.history, state.currentHistoryIndex);
+
   let winner = calculateWinner(currentSquares);
 
   let statusDisplay =
@@ -177,14 +178,21 @@ let make = (~message) => {
         let moveString =
           "(" ++ string_of_int(row) ++ ", " ++ string_of_int(col) ++ ")";
 
+        let moveDisplay =
+          if (index == 0) {
+            React.string("Go to game start");
+          } else {
+            React.string(
+              "Go to move #" ++ string_of_int(index) ++ " " ++ moveString,
+            );
+          };
+
         <li key={string_of_int(index)}>
           <button onClick={_event => dispatch(JumpToHistory(index))}>
-            {if (index == 0) {
-               React.string("Go to game start");
+            {if (index == state.currentHistoryIndex) {
+               <b> moveDisplay </b>;
              } else {
-               React.string(
-                 "Go to move #" ++ string_of_int(index) ++ " " ++ moveString,
-               );
+               moveDisplay;
              }}
           </button>
         </li>;
